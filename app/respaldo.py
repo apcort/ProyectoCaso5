@@ -65,3 +65,12 @@ def ejecutar_respaldo(trabajo, incremental=False, ahora=None):
     if incremental and not es_incremental:
         resultado["mensaje"] += " (no había respaldo previo, se hizo completo)"
     return resultado
+def rotar(trabajo):
+    """Elimina los respaldos más antiguos si hay más de `copias`. Devuelve los borrados."""
+    copias = int(trabajo["copias"])
+    eliminados = []
+    for r in almacenamiento.listar_respaldos(trabajo)[copias:]:
+        Path(r["ruta"]).unlink(missing_ok=True)
+        eliminados.append(r["nombre"])
+    return eliminados
+
