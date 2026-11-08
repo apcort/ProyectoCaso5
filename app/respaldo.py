@@ -93,3 +93,15 @@ def ejecutar_y_registrar(trabajo, incremental=False, ahora=None):
         }
     )
     return r
+
+def _filtro_incremental(trabajo):
+    """Opciones de tar para copiar solo lo modificado desde el último respaldo.
+
+    Devuelve None si todavía no hay un respaldo previo (se hará uno completo).
+    """
+    previos = almacenamiento.listar_respaldos(trabajo)
+    if not previos:
+        return None
+    desde = previos[0]["momento"].strftime("%Y-%m-%d %H:%M:%S")
+    return ["--newer-mtime", desde]
+
