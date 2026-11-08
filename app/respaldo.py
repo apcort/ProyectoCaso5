@@ -74,3 +74,22 @@ def rotar(trabajo):
         eliminados.append(r["nombre"])
     return eliminados
 
+
+def ejecutar_y_registrar(trabajo, incremental=False, ahora=None):
+    """Respalda, rota si salió bien y anota la ejecución en el historial."""
+    r = ejecutar_respaldo(trabajo, incremental, ahora)
+    if r["ok"]:
+        eliminados = rotar(trabajo)
+        if eliminados:
+            r["mensaje"] += f" Rotación: se eliminaron {len(eliminados)} copia(s) antigua(s)."
+    historial.registrar(
+        {
+            "trabajo": trabajo["nombre"],
+            "archivo": r["archivo"],
+            "duracion": r["duracion"],
+            "tamano": r["tamano"],
+            "resultado": "OK" if r["ok"] else "ERROR",
+            "codigo": r["codigo"],
+        }
+    )
+    return r
