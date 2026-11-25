@@ -99,3 +99,39 @@ def esperar_tecla(stdscr, dibujar, salir_con_q=True):
         if salir_con_q and tecla in ("q", "Q"):
             raise Salir
         return tecla
+
+def menu_lista(stdscr, titulo, opciones, seleccion=0, ayuda=""):
+    """Menú navegable con flechas. Devuelve el índice elegido o None si presiona Esc."""
+    estado = {"sel": min(seleccion, max(len(opciones) - 1, 0)), "ini": 0}
+    def dibujar(scr, alto, ancho):
+        win = crear_ventana(alto, ancho, 0, 0, titulo)
+        primera = 2
+        if ayuda:
+            escribir(win, 2, 2, ayuda, curses.color_pair(C_AYUDA) | curses.A_BOLD)
+            primera = 4
+        filas = max(alto - primera - 2, 1)
+        if estado["sel"] < estado["ini"]:
+            estado["ini"] = estado["sel"]
+        if estado["sel"] >= estado["ini"] + filas:
+            estado["ini"] = estado["sel"] - filas + 1
+        visibles = opciones[estado["ini"] : estado["ini"] + filas]
+        for i, texto in enumerate(visibles):
+            actual = estado["ini"] + i == estado["sel"]
+            linea = f"  {texto}".ljust(ancho - 1)
+            atributo = curses.color_pair(C_SELECCION) if actual else 0
+            escribir(win, primera + i, 0, linea, atributo)
+        if not opciones:
+            escribir(win, primera, 2, "(sin elementos)")
+        escribir(win, alto - 1, 1, PIE_MENU, curses.color_pair(C_AYUDA) | curses.A_BOLD)
+        win.noutrefresh()
+    while True:
+        tecla = esperar_tecla(stdscr, dibujar)
+        if tecla == curses.KEY_UP and estado["sel"] > 0:
+            estado["sel"] -= 1
+        elif tecla == curses.KEY_DOWN and estado["sel"] < len(opciones) - 1:
+            estado["sel"] += 1
+        elif es_enter(tecla) and opciones:
+            return estado["sel"]
+        elif tecla in ("\x1b", curses.KEY_LEFT, curses.KEY_BACKSPACE):
+            return None
+            
