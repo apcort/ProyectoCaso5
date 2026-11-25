@@ -74,3 +74,23 @@ def validar_trabajo(trabajo):
     if copias < 1:
         errores.append("Las copias a conservar deben ser un número entero mayor o igual a 1.")
     return errores
+
+
+def agregar_trabajo(trabajos, nuevo, ruta=None):
+    """Valida el trabajo, lo agrega a la lista y la guarda. Devuelve la lista de errores."""
+    errores = validar_trabajo(nuevo)
+    nombre = str(nuevo.get("nombre", "")).strip()
+    if any(t["nombre"] == nombre for t in trabajos):
+        errores.append("Ya existe un trabajo con ese nombre.")
+    if errores:
+        return errores
+    trabajos.append(
+        {
+            "nombre": nombre,
+            "origen": str(nuevo["origen"]).strip(),
+            "destino": str(nuevo["destino"]).strip(),
+            "copias": int(nuevo["copias"]),
+        }
+    )
+    guardar_trabajos(trabajos, ruta)
+    return []
