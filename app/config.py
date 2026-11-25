@@ -27,3 +27,50 @@ def guardar_trabajos(trabajos, ruta=None):
     ruta = Path(ruta) if ruta else ARCHIVO_TRABAJOS
     ruta.parent.mkdir(parents=True, exist_ok=True)
     ruta.write_text(json.dumps(trabajos, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _ruta(texto):
+    return Path(texto).expanduser().resolve()
+
+
+def validar_trabajo(trabajo):
+    """Devuelve una lista de errores (vacía si el trabajo es válido)."""
+    errores = []
+    nombre = str(trabajo.get("nombre", "")).strip()
+    origen = str(trabajo.get("origen", "")).strip()
+    destino = str(trabajo.get("destino", "")).strip()
+    prohibidas = {Path("/"), Path.home().resolve()}
+
+    if not nombre:
+        errores.append("El nombre es obligatorio.")
+    elif not re.fullmatch(r"[A-Za-z0-9_-]+", nombre):
+        errores.append("El nombre solo admite letras, números, guion y guion bajo.")
+
+    ruta_origen = ruta_destino = None
+    if not origen:
+        errores.append("La carpeta de origen es obligatoria.")
+    else:
+        ruta_origen = _ruta(origen)
+        if ruta_origen in prohibidas:
+            errores.append("El origen no puede ser / ni la carpeta personal completa.")
+        elif not ruta_origen.is_dir():
+            errores.append("La carpeta de origen no existe.")
+
+    if not destino:
+        errores.append("La carpeta de destino es obligatoria.")
+    else:
+        ruta_destino = _ruta(destino)
+        if ruta_destino in prohibidas:
+            errores.append("El destino no puede ser / ni la carpeta personal completa.")
+
+    if ruta_origen and ruta_destino:
+        if ruta_destino == ruta_origen or ruta_origen in ruta_destino.parents:
+            errores.append("El destino no puede estar dentro del origen.")
+
+    try:
+        copias = int(trabajo.get("copias", 0))
+    except (TypeError, ValueError):
+        copias = 0
+    if copias < 1:
+        errores.append("Las copias a conservar deben ser un número entero mayor o igual a 1.")
+    return errores
