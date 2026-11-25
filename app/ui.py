@@ -265,3 +265,23 @@ def pantalla_trabajos(stdscr):
                 f"Copias a conservar: {t['copias']}",
             ]
             mostrar_mensaje(stdscr, f"Trabajo {t['nombre']}", datos, 0)
+
+def pantalla_ejecutar(stdscr):
+    """Ejecuta el respaldo del trabajo elegido y muestra si terminó bien."""
+    trabajos = config.cargar_trabajos()
+    if not trabajos:
+        mostrar_mensaje(stdscr, "Sin trabajos", ["Primero configura un trabajo."], C_AVISO)
+        return
+    eleccion = menu_lista(stdscr, "Ejecutar respaldo", [t["nombre"] for t in trabajos])
+    if eleccion is None:
+        return
+    trabajo = trabajos[eleccion]
+    aviso(stdscr, f"Respaldando {trabajo['nombre']}...")
+    r = respaldo.ejecutar_y_registrar(trabajo)
+    tamano = almacenamiento.formatear_tamano(r["tamano"])
+    lineas = [
+        "Estado: terminó bien" if r["ok"] else "Estado: FALLÓ",
+        r["mensaje"],
+        f"Duración: {r['duracion']} s / Tamaño: {tamano} / Código de tar: {r['codigo']}",
+    ]
+    mostrar_mensaje(stdscr, "Resultado del respaldo", lineas, C_OK if r["ok"] else C_ERROR)
