@@ -134,4 +134,134 @@ def menu_lista(stdscr, titulo, opciones, seleccion=0, ayuda=""):
             return estado["sel"]
         elif tecla in ("\x1b", curses.KEY_LEFT, curses.KEY_BACKSPACE):
             return None
-            
+
+    def mostrar_mensaje(stdscr, titulo, lineas, color=C_OK):
+    """Muestra un mensaje a pantalla completa. Se cierra con Enter, Esc o espacio."""
+    def dibujar(scr, alto, ancho):
+        win = crear_ventana(alto, ancho, 0, 0, titulo)
+        for i, linea in enumerate(ajustar(lineas, ancho - 6)[: alto - 5]):
+            escribir(win, 2 + i, 2, linea, curses.color_pair(color))
+        escribir(win, alto - 1, 1, "Enter: continuar", curses.color_pair(C_AYUDA) | curses.A_BOLD)
+        win.noutrefresh()
+    while True:
+        tecla = esperar_tecla(stdscr, dibujar)
+        if es_enter(tecla) or tecla in ("\x1b", " "):
+            return
+
+def aviso(stdscr, texto):
+    """Muestra un mensaje de 'trabajando...' sin esperar ninguna tecla."""
+    alto, ancho = stdscr.getmaxyx()
+    stdscr.erase()
+    stdscr.noutrefresh()
+    win = crear_ventana(alto, ancho, 0, 0, "Espera")
+    escribir(win, 2, 2, texto, curses.color_pair(C_AVISO))
+    win.noutrefresh()
+    curses.doupdate()
+
+def preguntar(stdscr, titulo, preguntas, intro=(), al_terminar=None):
+    """Preguntas en formato terminal: cada pregunta aparece debajo de la anterior.
+    preguntas: lista de (etiqueta, tipo); tipo "texto" (termina con Enter) o "sn" (tecla s/n).
+    Devuelve la lista de respuestas, o None si se cancela con Esc.
+    Si se da al_terminar(respuestas) -> (lineas, color), ese resultado se muestra
+    debajo de las respuestas y se espera Enter.
+    """
+    estado = {"respuestas": [], "texto": [], "resultado": None}
+    def dibujar(scr, alto, ancho):
+        win = crear_ventana(alto, ancho, 0, 0, titulo)
+        fila = 2
+        for linea in intro:
+            escribir(win, fila, 2, linea)
+            fila += 1
+        if intro:
+            fila += 1
+        respuestas = estado["respuestas"]
+        for i in range(min(len(respuestas) + 1, len(preguntas))):
+            etiqueta = preguntas[i][0]
+            if i 
+< len(respuestas):
+                escribir(win, fila, 2, f"{etiqueta} {respuestas[i]}")
+            else:
+                libre = max(ancho - len(etiqueta) - 7, 5)
+                escrito = "".join(estado["texto"])[-libre:]
+                escribir(win, fila, 2, f"{etiqueta} {escrito}_", curses.A_BOLD)
+            fila += 1
+        if estado["resultado"] is not None:
+            lineas, color = estado["resultado"]
+            fila += 1
+            for linea in ajustar(lineas, ancho - 6):
+                escribir(win, fila, 2, linea, curses.color_pair(color))
+                fila += 1
+            pie = "Enter: continuar"
+        elif len(respuestas) < len(preguntas) and preguntas[len(respuestas)][1] == "sn":
+            pie = "s: Sí / n: No / Esc: cancelar"
+        else:
+            pie = "Enter: aceptar / Esc: cancelar"
+        escribir(win, alto - 1, 1, pie, curses.color_pair(C_AYUDA) | curses.A_BOLD)
+        win.noutrefresh()
+    while True:
+        respuestas = estado["respuestas"]
+        if len(respuestas) == len(preguntas):
+            if al_terminar is None:
+                return list(respuestas)
+            if estado["resultado"] is None:
+                estado["resultado"] = al_terminar(list(respuestas))
+            tecla = esperar_tecla(stdscr, dibujar)
+            if es_enter(tecla) or tecla in ("\x1b", " "):
+                return list(respuestas)
+            continue
+        es_sn = preguntas[len(respuestas)][1] == "sn"
+        tecla = esperar_tecla(stdscr, dibujar, salir_con_q=es_sn)
+        if tecla == "\x1b":
+            return None
+        if es_sn:
+            if tecla in ("s", "S", "n", "N"):
+                respuestas.append(tecla.lower())
+        elif es_enter(tecla):
+            respuestas.append("".join(estado["texto"]).strip())
+            estado["texto"].clear()
+        elif tecla in (curses.KEY_BACKSPACE, "\x7f", "\b"):
+            if estado["texto"]:
+                estado["texto"].pop()
+        elif isinstance(tecla, str) and tecla.isprintable():
+            estado["texto"].append(tecla)
+
+def formulario_trabajo(stdscr, trabajos):
+    """Pide nombre, origen, destino y copias, una pregunta debajo de otra, y guarda."""
+    preguntas = [
+        ("Nombre del trabajo:", "texto"),
+        ("Carpeta de origen:", "texto"),
+        ("Carpeta de destino de los respaldos:", "texto"),
+        ("Cuántas copias conservar:", "texto"),
+    ]
+    def terminar(respuestas):
+        nuevo = dict(zip(("nombre", "origen", "destino", "copias"), respuestas))
+        errores = config.agregar_trabajo(trabajos, nuevo)
+        if errores:
+            return ["No se guardó el trabajo:"] + [f"- {e}" for e in errores], C_ERROR
+        return ["El trabajo se guardó correctamente."], C_OK
+    preguntar(stdscr, "Nuevo trabajo de respaldo", preguntas, al_terminar=terminar)
+def pantalla_trabajos(stdscr):
+  """Muestra los trabajos configurados y permite agregar uno nuevo."""
+    pos = 0
+    while True:
+        trabajos = config.cargar_trabajos()
+        opciones = [
+            f"{t['nombre']:<12} > ORIGEN: {t['origen']}"
+            for t in trabajos
+        ]
+        opciones.append(" - Agregar nuevo trabajo")
+        ayuda = "Agregue un nuevo trabajo o haga Enter sobre uno ya creado."
+        eleccion = menu_lista(stdscr, "Configurar trabajos de respaldo", opciones, pos, ayuda)
+        if eleccion is None:
+            return
+        pos = eleccion
+        if eleccion == len(trabajos):
+            formulario_trabajo(stdscr, trabajos)
+        else:
+            t = trabajos[eleccion]
+            datos = [
+                f"Origen: {t['origen']}",
+                f"Destino: {t['destino']}",
+                f"Copias a conservar: {t['copias']}",
+            ]
+            mostrar_mensaje(stdscr, f"Trabajo {t['nombre']}", datos, 0)
