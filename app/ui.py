@@ -224,3 +224,44 @@ def preguntar(stdscr, titulo, preguntas, intro=(), al_terminar=None):
                 estado["texto"].pop()
         elif isinstance(tecla, str) and tecla.isprintable():
             estado["texto"].append(tecla)
+
+def formulario_trabajo(stdscr, trabajos):
+    """Pide nombre, origen, destino y copias, una pregunta debajo de otra, y guarda."""
+    preguntas = [
+        ("Nombre del trabajo:", "texto"),
+        ("Carpeta de origen:", "texto"),
+        ("Carpeta de destino de los respaldos:", "texto"),
+        ("Cuántas copias conservar:", "texto"),
+    ]
+    def terminar(respuestas):
+        nuevo = dict(zip(("nombre", "origen", "destino", "copias"), respuestas))
+        errores = config.agregar_trabajo(trabajos, nuevo)
+        if errores:
+            return ["No se guardó el trabajo:"] + [f"- {e}" for e in errores], C_ERROR
+        return ["El trabajo se guardó correctamente."], C_OK
+    preguntar(stdscr, "Nuevo trabajo de respaldo", preguntas, al_terminar=terminar)
+def pantalla_trabajos(stdscr):
+  """Muestra los trabajos configurados y permite agregar uno nuevo."""
+    pos = 0
+    while True:
+        trabajos = config.cargar_trabajos()
+        opciones = [
+            f"{t['nombre']:<12} > ORIGEN: {t['origen']}"
+            for t in trabajos
+        ]
+        opciones.append(" - Agregar nuevo trabajo")
+        ayuda = "Agregue un nuevo trabajo o haga Enter sobre uno ya creado."
+        eleccion = menu_lista(stdscr, "Configurar trabajos de respaldo", opciones, pos, ayuda)
+        if eleccion is None:
+            return
+        pos = eleccion
+        if eleccion == len(trabajos):
+            formulario_trabajo(stdscr, trabajos)
+        else:
+            t = trabajos[eleccion]
+            datos = [
+                f"Origen: {t['origen']}",
+                f"Destino: {t['destino']}",
+                f"Copias a conservar: {t['copias']}",
+            ]
+            mostrar_mensaje(stdscr, f"Trabajo {t['nombre']}", datos, 0)
